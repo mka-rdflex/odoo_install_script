@@ -144,6 +144,13 @@ if (($(echo "$version < 15" | bc -l))); then
 else
     pip3 install -r https://github.com/odoo/odoo/raw/$f_version/requirements.txt --break-system-packages
 fi
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to install the required Python packages."
+    exit 1
+else
+    echo "Python packages installed successfully."
+fi
+
 
 #--------------------------------------------------
 # Install Wkhtmltopdf if needed
@@ -151,7 +158,7 @@ fi
 
 wget https://github.com/odoo/wkhtmltopdf/releases/download/nightly/odoo-wkhtmltopdf-ubuntu-jammy-x86_64-0.13.0-nightly.deb 
 sudo dpkg -i odoo-wkhtmltopdf-ubuntu-jammy-x86_64-0.13.0-nightly.deb
-rm -rf odoo-wkhtmltopdf-ubuntu-jammy-x86_64-0.13.0-nightly.deb 
+rm -rf odoo-wkhtmltopdf-ubuntu-jammy-x86_64-0.13.0-nightly.deb
 
 #--------------------------------------------------
 # Install ODOO
