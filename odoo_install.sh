@@ -23,7 +23,11 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-sudo apt update && sudo apt upgrade -y
+# Update Server
+#--------------------------------------------------
+echo -e "\n---- Update Server ----"
+
+sudo apt install libpq-dev
 
 # Check if the float value is less than 15
 if (($(echo "$version < 15" | bc -l))); then
@@ -113,11 +117,6 @@ else
     fi
 fi
 
-# Update Server
-#--------------------------------------------------
-echo -e "\n---- Update Server ----"
-
-sudo apt install libpq-dev
 
 #--------------------------------------------------
 # Install PostgreSQL Server
