@@ -4,8 +4,13 @@ OE_USER=$(whoami)
 OE_HOME="home/$OE_USER"
 OE_PASSWORD="admin"
 
-read -p "Enter version: " version
-echo "version is odoo${version}"
+read -p "Enter version (integer between 12 and 18) : " version
+
+if [[ ! $version =~ ^[0-9]+$ || $version -lt 12 || $version -gt 18 ]]; then
+    echo "Enter a valid version (integer between 12 and 18)"
+else
+    echo "Version is odoo${version}"
+fi
 
 f_version=$(echo "$version.0" | bc)
 
@@ -18,12 +23,6 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Validate if input is a float
-# if ! [[ $version =~ ^-?[0-9]*\.?[0-9]+$ ]]; then
-#     echo "Invalid input. Please enter a valid float value."
-#     exit 1
-# fi
-# Update and upgrade system packages
 sudo apt update && sudo apt upgrade -y
 
 # Check if the float value is less than 15
