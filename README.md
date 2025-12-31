@@ -6,17 +6,17 @@ Automated installation scripts for Odoo ERP and ZSH shell setup on Ubuntu/Debian
 
 ### 1. `odoo_install.sh` - Odoo ERP Installer
 
-Automates the complete installation of Odoo ERP (versions 12-19) with full configuration.
+Full-featured Odoo installer with interactive TUI menu.
 
 #### Features
 
-- Supports Odoo versions 12, 13, 14, 15, 16, 17, 18, and 19
-- Automatic pyenv setup for older versions (< 15) requiring Python 3.6
-- PostgreSQL installation and user configuration
-- wkhtmltopdf installation with OS detection
-- **Auto-generates `odoo.conf` configuration file**
-- Creates helper scripts (start/stop)
-- Custom addons directory creation
+- **Interactive TUI Menu** - User-friendly whiptail-based interface
+- **Native or Docker Installation** - Choose your preferred method
+- **SMTP Email Configuration** - Optional email setup
+- **UFW Firewall Configuration** - Automatic firewall rules
+- Supports Odoo versions 12-19
+- Auto-generates configuration files
+- Creates helper scripts (start/stop/restart/logs)
 
 #### Prerequisites
 
@@ -31,68 +31,68 @@ chmod +x odoo_install.sh
 ./odoo_install.sh
 ```
 
-#### Configuration Prompts
+#### Interactive Menu Options
 
-During installation, you'll be prompted for:
+| Screen | Options |
+|--------|---------|
+| Installation Type | Native / Docker |
+| Odoo Version | 12, 13, 14, 15, 16, 17, 18, 19 |
+| Basic Settings | PostgreSQL password, ports, master password |
+| Performance | Workers, log level, memory limits |
+| Email (Optional) | SMTP server, port, credentials |
+| Firewall (Optional) | UFW configuration |
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| PostgreSQL password | `admin` | Database user password |
-| Odoo version | - | Version 12-19 |
-| HTTP port | `8069` | Web interface port |
-| Longpolling port | `8072` | Live chat/websocket port |
-| Master password | `admin` | Odoo admin password |
-| Workers | `0` | Number of workers (0=disabled) |
-| DB filter | `.*` | Database filter regex |
-| Log level | `info` | Logging verbosity |
-| Memory limit (soft) | `1024` MB | Soft memory limit per worker |
-| Memory limit (hard) | `2048` MB | Hard memory limit per worker |
+#### Installation Types
 
-#### Installation Locations
+##### Native Installation
+- Installs directly on the system
+- PostgreSQL installed locally
+- Python dependencies via pip
+- Best for development/single server
 
-| Component | Path |
-|-----------|------|
-| Odoo source | `~/workspace/odoo{version}/odoo` |
-| Custom addons | `~/workspace/custom_addons/odoo{version}` |
-| Config file | `~/workspace/odoo{version}/config/odoo{version}.conf` |
-| Log file | `~/workspace/odoo{version}/logs/odoo{version}.log` |
-| Data directory | `~/workspace/odoo{version}/data` |
+##### Docker Installation
+- Uses official Odoo Docker images
+- PostgreSQL in separate container
+- Easy to manage and update
+- Best for production/isolation
 
-#### Generated Configuration File
+#### Generated Files
 
-The script generates a complete `odoo.conf` with:
-
-```ini
-[options]
-; Admin & Security
-admin_passwd = your_master_password
-
-; Database Configuration
-db_host = localhost
-db_port = 5432
-db_user = your_user
-db_password = your_password
-
-; Paths
-addons_path = /path/to/odoo/addons,/path/to/custom_addons
-
-; Server Configuration
-http_port = 8069
-longpolling_port = 8072
-
-; Logging
-logfile = /path/to/logs/odoo.log
-log_level = info
-
-; Performance & Workers
-workers = 0
-limit_memory_soft = 1073741824
-limit_memory_hard = 2147483648
+```
+~/workspace/odoo{version}/
+├── odoo/                    # Odoo source (native only)
+├── docker-compose.yml       # Docker config (docker only)
+├── config/
+│   └── odoo{version}.conf   # Configuration file
+├── logs/
+│   └── odoo{version}.log    # Log file
+├── data/                    # Filestore/sessions
+├── start-odoo.sh            # Start script
+├── stop-odoo.sh             # Stop script
+├── restart-odoo.sh          # Restart script
+├── logs-odoo.sh             # View logs script
+└── shell-odoo.sh            # Docker shell (docker only)
 ```
 
-#### Starting Odoo
+#### SMTP Configuration
 
-Using helper scripts:
+When enabled, configures:
+- SMTP Server (e.g., smtp.gmail.com)
+- SMTP Port (587/465/25)
+- SSL/TLS settings
+- Authentication credentials
+- From email address
+
+#### UFW Firewall Rules
+
+When enabled, automatically:
+- Allows SSH (prevents lockout)
+- Opens Odoo HTTP port
+- Opens Longpolling port
+- Enables UFW if not active
+
+#### Commands
+
 ```bash
 # Start Odoo
 ~/workspace/odoo{version}/start-odoo.sh
@@ -100,17 +100,15 @@ Using helper scripts:
 # Stop Odoo
 ~/workspace/odoo{version}/stop-odoo.sh
 
+# Restart Odoo
+~/workspace/odoo{version}/restart-odoo.sh
+
 # View logs
-tail -f ~/workspace/odoo{version}/logs/odoo{version}.log
-```
+~/workspace/odoo{version}/logs-odoo.sh
 
-Or manually:
-```bash
-cd ~/workspace/odoo{version}/odoo
-python3 odoo-bin -c ../config/odoo{version}.conf
+# Docker shell (docker only)
+~/workspace/odoo{version}/shell-odoo.sh
 ```
-
-Access Odoo at: `http://localhost:8069`
 
 ---
 
@@ -148,6 +146,8 @@ chmod +x zsh_install.sh
 | curl | Downloading files |
 | wget | Downloading packages |
 | sudo | Administrative tasks |
+| whiptail | Interactive menus (auto-installed) |
+| docker | Docker installation (auto-installed) |
 
 ## Tested On
 
@@ -160,13 +160,17 @@ chmod +x zsh_install.sh
 
 1. **Port already in use**: Change HTTP port during installation
 2. **Memory errors**: Increase memory limits or reduce workers
-3. **Database connection failed**: Verify PostgreSQL is running
+3. **Docker permission denied**: Log out and back in after install
+4. **UFW blocks connection**: Check `sudo ufw status`
 
-### Logs
+### View Logs
 
-Check logs for errors:
 ```bash
+# Native
 tail -100 ~/workspace/odoo{version}/logs/odoo{version}.log
+
+# Docker
+docker compose logs -f odoo
 ```
 
 ## License
