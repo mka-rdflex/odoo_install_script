@@ -6,15 +6,17 @@ Automated installation scripts for Odoo ERP and ZSH shell setup on Ubuntu/Debian
 
 ### 1. `odoo_install.sh` - Odoo ERP Installer
 
-Automates the complete installation of Odoo ERP (versions 12-19).
+Full-featured Odoo installer with interactive TUI menu.
 
 #### Features
 
-- Supports Odoo versions 12, 13, 14, 15, 16, 17, 18, and 19
-- Automatic pyenv setup for older versions (< 15) requiring Python 3.6
-- PostgreSQL installation and user configuration
-- wkhtmltopdf installation with OS detection
-- Custom addons directory creation
+- **Interactive TUI Menu** - User-friendly whiptail-based interface
+- **Native or Docker Installation** - Choose your preferred method
+- **SMTP Email Configuration** - Optional email setup
+- **UFW Firewall Configuration** - Automatic firewall rules
+- Supports Odoo versions 12-19
+- Auto-generates configuration files
+- Creates helper scripts (start/stop/restart/logs)
 
 #### Prerequisites
 
@@ -29,22 +31,83 @@ chmod +x odoo_install.sh
 ./odoo_install.sh
 ```
 
-You will be prompted for:
-1. PostgreSQL password (default: `admin`)
-2. Odoo version (12-19)
+#### Interactive Menu Options
 
-#### Installation Locations
+| Screen | Options |
+|--------|---------|
+| Installation Type | Native / Docker |
+| Odoo Version | 12, 13, 14, 15, 16, 17, 18, 19 |
+| Basic Settings | PostgreSQL password, ports, master password |
+| Performance | Workers, log level, memory limits |
+| Email (Optional) | SMTP server, port, credentials |
+| Firewall (Optional) | UFW configuration |
 
-| Component | Path |
-|-----------|------|
-| Odoo source | `~/workspace/odoo{version}/odoo` |
-| Custom addons | `~/workspace/custom_addons/odoo{version}` |
+#### Installation Types
 
-#### Starting Odoo
+##### Native Installation
+- Installs directly on the system
+- PostgreSQL installed locally
+- Python dependencies via pip
+- Best for development/single server
+
+##### Docker Installation
+- Uses official Odoo Docker images
+- PostgreSQL in separate container
+- Easy to manage and update
+- Best for production/isolation
+
+#### Generated Files
+
+```
+~/workspace/odoo{version}/
+├── odoo/                    # Odoo source (native only)
+├── docker-compose.yml       # Docker config (docker only)
+├── config/
+│   └── odoo{version}.conf   # Configuration file
+├── logs/
+│   └── odoo{version}.log    # Log file
+├── data/                    # Filestore/sessions
+├── start-odoo.sh            # Start script
+├── stop-odoo.sh             # Stop script
+├── restart-odoo.sh          # Restart script
+├── logs-odoo.sh             # View logs script
+└── shell-odoo.sh            # Docker shell (docker only)
+```
+
+#### SMTP Configuration
+
+When enabled, configures:
+- SMTP Server (e.g., smtp.gmail.com)
+- SMTP Port (587/465/25)
+- SSL/TLS settings
+- Authentication credentials
+- From email address
+
+#### UFW Firewall Rules
+
+When enabled, automatically:
+- Allows SSH (prevents lockout)
+- Opens Odoo HTTP port
+- Opens Longpolling port
+- Enables UFW if not active
+
+#### Commands
 
 ```bash
-cd ~/workspace/odoo{version}/odoo
-python3 odoo-bin
+# Start Odoo
+~/workspace/odoo{version}/start-odoo.sh
+
+# Stop Odoo
+~/workspace/odoo{version}/stop-odoo.sh
+
+# Restart Odoo
+~/workspace/odoo{version}/restart-odoo.sh
+
+# View logs
+~/workspace/odoo{version}/logs-odoo.sh
+
+# Docker shell (docker only)
+~/workspace/odoo{version}/shell-odoo.sh
 ```
 
 ---
@@ -83,11 +146,32 @@ chmod +x zsh_install.sh
 | curl | Downloading files |
 | wget | Downloading packages |
 | sudo | Administrative tasks |
+| whiptail | Interactive menus (auto-installed) |
+| docker | Docker installation (auto-installed) |
 
 ## Tested On
 
 - Ubuntu 22.04 LTS (Jammy)
 - Ubuntu 24.04 LTS (Noble)
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Port already in use**: Change HTTP port during installation
+2. **Memory errors**: Increase memory limits or reduce workers
+3. **Docker permission denied**: Log out and back in after install
+4. **UFW blocks connection**: Check `sudo ufw status`
+
+### View Logs
+
+```bash
+# Native
+tail -100 ~/workspace/odoo{version}/logs/odoo{version}.log
+
+# Docker
+docker compose logs -f odoo
+```
 
 ## License
 
