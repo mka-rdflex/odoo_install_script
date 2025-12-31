@@ -11,11 +11,22 @@ set -e
 OE_USER=$(whoami)
 OE_HOME="/home/$OE_USER"
 
-# Prompt for PostgreSQL password (default: admin)
+# =============================================================================
+# Configuration Prompts
+# =============================================================================
+
+echo ""
+echo "=============================================="
+echo "  Odoo Installation Configuration"
+echo "=============================================="
+echo ""
+
+# PostgreSQL password
 read -p "Enter PostgreSQL password for Odoo user (default: admin): " OE_PASSWORD
 OE_PASSWORD="${OE_PASSWORD:-admin}"
 
-read -p "Enter version (integer between 12 and 19): " version
+# Odoo version
+read -p "Enter Odoo version (12-19): " version
 
 if [[ ! $version =~ ^[0-9]+$ || $version -lt 12 || $version -gt 19 ]]; then
     echo "Error: Enter a valid version (integer between 12 and 19)"
@@ -23,12 +34,56 @@ if [[ ! $version =~ ^[0-9]+$ || $version -lt 12 || $version -gt 19 ]]; then
 fi
 
 echo "Version is odoo${version}"
-
 f_version="${version}.0"
 
+# HTTP Port
+read -p "Enter HTTP port (default: 8069): " OE_PORT
+OE_PORT="${OE_PORT:-8069}"
+
+# Longpolling Port (for live chat/websocket)
+read -p "Enter Longpolling port (default: 8072): " OE_LONGPOLLING_PORT
+OE_LONGPOLLING_PORT="${OE_LONGPOLLING_PORT:-8072}"
+
+# Admin Master Password
+read -p "Enter Odoo Master/Admin password (default: admin): " OE_SUPERADMIN
+OE_SUPERADMIN="${OE_SUPERADMIN:-admin}"
+
+# Worker configuration
+read -p "Enter number of workers (0=disabled, recommended: CPU cores * 2 + 1, default: 0): " OE_WORKERS
+OE_WORKERS="${OE_WORKERS:-0}"
+
+# Database filter
+read -p "Enter database filter regex (default: .*): " OE_DB_FILTER
+OE_DB_FILTER="${OE_DB_FILTER:-.*}"
+
+# Log level
+echo "Log levels: debug, info, warning, error, critical"
+read -p "Enter log level (default: info): " OE_LOG_LEVEL
+OE_LOG_LEVEL="${OE_LOG_LEVEL:-info}"
+
+# Limit memory
+read -p "Enter memory limit per worker in MB (default: 1024): " OE_LIMIT_MEMORY_SOFT
+OE_LIMIT_MEMORY_SOFT="${OE_LIMIT_MEMORY_SOFT:-1024}"
+OE_LIMIT_MEMORY_SOFT=$((OE_LIMIT_MEMORY_SOFT * 1024 * 1024))
+
+read -p "Enter hard memory limit per worker in MB (default: 2048): " OE_LIMIT_MEMORY_HARD
+OE_LIMIT_MEMORY_HARD="${OE_LIMIT_MEMORY_HARD:-2048}"
+OE_LIMIT_MEMORY_HARD=$((OE_LIMIT_MEMORY_HARD * 1024 * 1024))
+
+# Directory paths
 OE_HOME_EXT="$OE_HOME/workspace/odoo${version}"
 CUSTOM="$OE_HOME/workspace/custom_addons/odoo${version}"
+OE_CONFIG_DIR="$OE_HOME/workspace/odoo${version}/config"
+OE_CONFIG_FILE="$OE_CONFIG_DIR/odoo${version}.conf"
+OE_LOG_DIR="$OE_HOME/workspace/odoo${version}/logs"
+OE_DATA_DIR="$OE_HOME/workspace/odoo${version}/data"
+
+# Create directories
 sudo -u "$OE_USER" mkdir -p "$OE_HOME_EXT"
+sudo -u "$OE_USER" mkdir -p "$OE_CONFIG_DIR"
+sudo -u "$OE_USER" mkdir -p "$OE_LOG_DIR"
+sudo -u "$OE_USER" mkdir -p "$OE_DATA_DIR"
+sudo -u "$OE_USER" mkdir -p "$CUSTOM"
 
 # Function to check if a command exists
 command_exists() {
@@ -44,6 +99,100 @@ detect_shell() {
     else
         basename "$SHELL"
     fi
+}
+
+# =============================================================================
+# Generate Odoo Configuration File
+# =============================================================================
+generate_odoo_config() {
+    echo -e "\n---- Generating Odoo configuration file ----"
+    
+    cat > "$OE_CONFIG_FILE" << EOF
+[options]
+; =============================================================================
+; Odoo ${version} Configuration File
+; Generated on: $(date)
+; =============================================================================
+
+; -----------------------------------------------------------------------------
+; Admin & Security
+; -----------------------------------------------------------------------------
+admin_passwd = ${OE_SUPERADMIN}
+
+; -----------------------------------------------------------------------------
+; Database Configuration
+; -----------------------------------------------------------------------------
+db_host = localhost
+db_port = 5432
+db_user = ${OE_USER}
+db_password = ${OE_PASSWORD}
+db_name = False
+db_filter = ${OE_DB_FILTER}
+db_maxconn = 64
+db_template = template0
+
+; -----------------------------------------------------------------------------
+; Paths
+; -----------------------------------------------------------------------------
+addons_path = ${OE_HOME_EXT}/odoo/addons,${CUSTOM}
+data_dir = ${OE_DATA_DIR}
+
+; -----------------------------------------------------------------------------
+; Server Configuration
+; -----------------------------------------------------------------------------
+http_port = ${OE_PORT}
+longpolling_port = ${OE_LONGPOLLING_PORT}
+http_interface = 0.0.0.0
+proxy_mode = False
+xmlrpc = True
+
+; -----------------------------------------------------------------------------
+; Logging
+; -----------------------------------------------------------------------------
+logfile = ${OE_LOG_DIR}/odoo${version}.log
+log_level = ${OE_LOG_LEVEL}
+log_handler = :${OE_LOG_LEVEL}
+logrotate = True
+syslog = False
+
+; -----------------------------------------------------------------------------
+; Performance & Workers
+; -----------------------------------------------------------------------------
+workers = ${OE_WORKERS}
+max_cron_threads = 2
+limit_memory_soft = ${OE_LIMIT_MEMORY_SOFT}
+limit_memory_hard = ${OE_LIMIT_MEMORY_HARD}
+limit_time_cpu = 600
+limit_time_real = 1200
+limit_time_real_cron = 3600
+limit_request = 8192
+
+; -----------------------------------------------------------------------------
+; Email Configuration (Update these for production)
+; -----------------------------------------------------------------------------
+; smtp_server = smtp.example.com
+; smtp_port = 587
+; smtp_ssl = False
+; smtp_user = your-email@example.com
+; smtp_password = your-email-password
+; email_from = odoo@example.com
+
+; -----------------------------------------------------------------------------
+; Development Options (Disable in production)
+; -----------------------------------------------------------------------------
+dev_mode = False
+; dev_mode = reload,qweb,xml
+
+; -----------------------------------------------------------------------------
+; Miscellaneous
+; -----------------------------------------------------------------------------
+list_db = True
+without_demo = all
+server_wide_modules = base,web
+EOF
+
+    chmod 640 "$OE_CONFIG_FILE"
+    echo "Configuration file created: $OE_CONFIG_FILE"
 }
 
 # Update Server
@@ -236,18 +385,61 @@ else
     exit 1
 fi
 
-echo -e "\n---- Create custom module directory ----"
-sudo -u "$OE_USER" mkdir -p "$CUSTOM"
+#--------------------------------------------------
+# Generate Configuration File
+#--------------------------------------------------
+generate_odoo_config
 
+#--------------------------------------------------
+# Create Helper Scripts
+#--------------------------------------------------
+echo -e "\n---- Creating helper scripts ----"
+
+# Start script
+cat > "$OE_HOME_EXT/start-odoo.sh" << EOF
+#!/bin/bash
+cd $OE_HOME_EXT/odoo
+python3 odoo-bin -c $OE_CONFIG_FILE
+EOF
+chmod +x "$OE_HOME_EXT/start-odoo.sh"
+
+# Stop script (for when running in background)
+cat > "$OE_HOME_EXT/stop-odoo.sh" << EOF
+#!/bin/bash
+pkill -f "odoo-bin -c $OE_CONFIG_FILE" || echo "Odoo is not running"
+EOF
+chmod +x "$OE_HOME_EXT/stop-odoo.sh"
+
+echo "Helper scripts created."
+
+#--------------------------------------------------
+# Installation Complete
+#--------------------------------------------------
 echo -e "\n=============================================="
 echo "  Odoo $version Installation Complete!"
 echo "=============================================="
 echo ""
-echo "Installation details:"
-echo "  - Odoo location: $OE_HOME_EXT/odoo"
-echo "  - Custom addons: $CUSTOM"
-echo "  - PostgreSQL user: $OE_USER"
+echo "Installation Details:"
+echo "  - Odoo source:     $OE_HOME_EXT/odoo"
+echo "  - Custom addons:   $CUSTOM"
+echo "  - Config file:     $OE_CONFIG_FILE"
+echo "  - Log file:        $OE_LOG_DIR/odoo${version}.log"
+echo "  - Data directory:  $OE_DATA_DIR"
 echo ""
-echo "To start Odoo, run:"
-echo "  cd $OE_HOME_EXT/odoo && python3 odoo-bin"
+echo "Configuration Summary:"
+echo "  - HTTP Port:       $OE_PORT"
+echo "  - Longpolling:     $OE_LONGPOLLING_PORT"
+echo "  - Workers:         $OE_WORKERS"
+echo "  - Log Level:       $OE_LOG_LEVEL"
+echo "  - DB User:         $OE_USER"
+echo ""
+echo "Commands:"
+echo "  Start Odoo:   $OE_HOME_EXT/start-odoo.sh"
+echo "  Stop Odoo:    $OE_HOME_EXT/stop-odoo.sh"
+echo "  View logs:    tail -f $OE_LOG_DIR/odoo${version}.log"
+echo ""
+echo "Or start manually:"
+echo "  cd $OE_HOME_EXT/odoo && python3 odoo-bin -c $OE_CONFIG_FILE"
+echo ""
+echo "Access Odoo at: http://localhost:$OE_PORT"
 echo ""
